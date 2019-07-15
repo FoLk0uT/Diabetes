@@ -1,0 +1,367 @@
+---
+title: "Predicting Diabetes"
+author: "Rahul Saini,Prateek sah,Rahul Pandey"
+date: "6/27/2019"
+output: html_document
+---
+
+```{r setup, include=TRUE }
+
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+
+pagebreak <- function() {
+    return('<div style="page-break-before: always;" />')
+}
+
+```
+
+### ***INTRODUCTION***
+**Diabetes is a common chronic disease and poses a great threat to human health. The characteristic of diabetes     is that the blood glucose is higher than the normal level, which is caused by defective insulin secretion or      its impaired biological eﬀects, or both. According to the growing morbidity in recent years, in 2040,            the world’s diabetic patients will reach 642 million, which means that one of the ten adults in the future is      suffering from diabetes. There is no doubt that this alarming ﬁgure needsgreat attention.**
+   **We used decisiontree,prune tree,random forest and logistic regression like machine learning techniques to predict diabetes.**
+
+
+### **Reading the File**
+
+```{r}
+diab= read.csv("diabetes.csv", header=T, stringsAsFactors=F)
+db = read.csv('diabetes.csv', header=TRUE)
+diabetes1=db
+```
+
+### **DIMENSIONS OF DATASET**
+Number of Observations and number of columns
+```{r}
+dim(db)
+```
+### **PEEK AT THE DATA**
+Name of the Columns in dataset.<br/>
+<b>Pregnancies:</b> Number of times pregnant<br/>
+<b>Glucose:</b> Plasma glucose concentration a 2 hours in an oral glucose tolerance test.<br/>
+<b>BloodPressure:</b> Diastolic blood pressure (mm Hg).<br/>
+<b>SkinThickness:</b> Triceps skin fold thickness (mm).<br/>
+<b>Insulin:</b> It is a hormone which regulates blood sugar level. 2-Hour serum insulin (mu U/ml)<br/>
+<b>BMI:</b> Body mass index (weight in kg/(height in m)^2).<br/>
+<b>DiabetesPedigreeFunction:</b> It provided some data on diabetes history in relatives of the patient.<br/>
+<b>Age:</b> It indiacates the age of person(Years) whose data was recorded.<br/>
+<b>Outcome:</b> Class variable (0 or 1)<br/>1 indicates that the person has diabetes<br/>
+0 indicates that the person doesn't have diabetes.
+
+```{r}
+names(db)
+```
+**Structure of the dataset.**
+```{r}
+str(db)
+```
+**Showing the first 6 values in dataset using the Head function.**
+```{r}
+head(db)
+```
+**Showing the last 6 values in dataset using the Tail function.**
+```{r}
+tail(db)
+```
+
+**Correlation between Variables**
+```{r}
+cor(db[,1:7])
+```
+
+### **Column Manipulation**
+OUtcome to factor<br/> 1->Yes<br/>0->No</br>
+```{r}
+diab$Outcome <- as.factor(diab$Outcome)
+levels(diab$Outcome) <- c("No","Yes")
+```
+### **STATISTICAL SUMMARY**
+
+```{r}
+summary(db)
+```
+
+`r pagebreak()`
+
+### **VISUALIZE DATASET**
+
+**We compute the matrix of CORRELATION between the variables.**
+```{r}
+library(corrplot)
+corrplot(cor(db), type = "lower", method = "number")
+```
+
+`r pagebreak()`
+
+### Histogram
+```{r, out.width="550px", out.height="550px"}
+hist(db$Glucose,col="darkgray",lwd=2)
+hist(db$Pregnancies,col="darkgray",lwd=2)
+```
+
+`r pagebreak()`
+
+```{r, out.width="550px", out.height="550px"}
+hist(db$BP,col="darkgray",lwd=2)
+hist(db$ST,col="darkgray",lwd=2)
+```
+
+`r pagebreak()`
+
+```{r, out.width="550px", out.height="550px"}
+hist(db$Insulin,col="darkgray",lwd=2)
+hist(db$BMI,col="darkgray",lwd=2)
+```
+
+`r pagebreak()`
+
+```{r, out.width="550px", out.height="550px"}
+hist(db$DPF,col="darkgray",lwd=2)
+hist(db$Age,col="darkgray",lwd=2)
+```
+
+
+
+
+`r pagebreak()`
+
+### **MODELS**
+
+### **Creating train and test data**
+```{r}
+nrows <- NROW(diab)
+set.seed(69)				            # fix random value
+index <- sample(1:nrows, 0.75 * nrows)	# shuffle and divide
+# train <- diab                         # 768 test data (100%)
+train <- diab[index,]			        # 576 test data (75%)
+test <- diab[-index,]  		            # 192 test data (25%)
+```
+
+### **Initial values**
+```{r}
+prop.table(table(train$Outcome))
+```
+
+### **1.DECISION TREE**
+*Now we present the Decision Trees algorithm*
+```{r}
+library(caret)
+library(rpart)
+learn_rp <- rpart(Outcome~.,data=train,control=rpart.control(minsplit=2))
+pre_rp <- predict(learn_rp, test[,-9], type="class")
+cm_rp  <- confusionMatrix(pre_rp, test$Outcome)	
+summary(cm_rp)
+
+
+learn_rp
+```
+**The results display the split criterion (e.g.Glucose < 127.5), the number of observations in that branch, the deviance, the overall prediction for the branch (Yes or No), and the fraction of observations in that branch that take on values of Yes and No. Branches that lead to terminal nodes are indicated using asterisks.**
+
+`r pagebreak()`
+
+***Now we plot of the tree, and interpret the results.***
+```{r}
+plot(learn_rp, margin = 0.05); text(learn_rp, use.n = TRUE, cex = 0.7)
+```
+
+**“Diabetes” appears to be Glucose, since the first branch split criterion (e.g. Glucose < 127.5).**
+**Predict the response on the test data, and produce a confusion matrix comparing the test labels to the predicted test labels.**
+
+`r pagebreak()`
+
+**Test error rate**
+
+```{r}
+
+confusionMatrix(pre_rp, test$Outcome)
+
+```
+**The test error rate is 23.96%. In other words, the accuracy is 76.04%.**
+
+`r pagebreak()`
+
+### **2.PRUNE TREE**
+```{r}
+learn_pru <- prune(learn_rp, cp=learn_rp$cptable[which.min(learn_rp$cptable[,"xerror"]),"CP"])
+pre_pru <- predict(learn_pru, test[,-9], type="class")
+cm_pru <-confusionMatrix(pre_pru, test$Outcome)			
+cm_pru
+plot(learn_pru, margin = 0.05); text(learn_pru, use.n = TRUE, cex = 0.7)
+```
+
+`r pagebreak()`
+
+
+
+### **3.LOGISTIC REGRESSION**
+
+```{r}
+table(db$Outcome) #baseline accuracy
+set.seed(420)
+require(caTools)
+# Splitting test1 and train1 data
+sample = sample.split(db$Outcome, SplitRatio=0.75)
+train1 = subset(db, sample==TRUE)
+test1 = subset(db, sample==FALSE)
+# Fit model - using all independent variables
+AllVar <- glm(Outcome ~ ., data = train1, family = binomial)
+summary(AllVar)
+
+# The result shows that the variables BloodPressure,SkinThickness Insulin and DiabetesPedigreeFunction are not statiscally significance. In other words, the p_values is greather than 0.01. Therefore they will be removed.
+
+# Update to use only the significant variables
+AllVar1 <- glm(Outcome ~Glucose+BMI+Age , data = train1, family = binomial)
+summary(AllVar1)
+# Let's predict outcome on Training dataset
+PredictTrain <- predict(AllVar1, type = "response")
+summary(PredictTrain)
+#Plot the new model
+plot(AllVar1)
+```
+
+`r pagebreak()`
+
+#### *3.1 Threshold->0.3*
+```{r}
+# Build confusion matrix with a threshold value of 0.3
+threshold_0.3 <- table(train1$Outcome, PredictTrain > 0.3)
+threshold_0.3
+# Accuracy
+accuracy_0.3 <- round(sum(diag(threshold_0.3))/sum(threshold_0.3),2)
+sprintf("Accuracy is %s", accuracy_0.3)
+# Mis-classification error rate
+MC_0.3 <- 1-accuracy_0.3
+sprintf("Mis-classification error is %s",MC_0.3)
+```
+
+
+
+#### *3.2 Threshold->0.5*
+```{r}
+# Build confusion matrix with a threshold value of 0.5
+threshold_0.5 <- table(train1$Outcome, PredictTrain > 0.5)
+threshold_0.5
+# Accuracy
+accuracy_0.5 <- round(sum(diag(threshold_0.5))/sum(threshold_0.5),2)
+sprintf("Accuracy is %s",accuracy_0.5)
+# Mis-classification error rate
+MC_0.5 <- 1-accuracy_0.5
+sprintf("Mis-classification error is %s",MC_0.5)
+```
+
+`r pagebreak()`
+
+#### *3.3 Threshold->0.7*
+```{r}
+# Build confusion matrix with a threshold value of 0.7
+threshold_0.7 <- table(train1$Outcome, PredictTrain > 0.7)
+threshold_0.7
+# Accuracy
+accuracy_0.7 <- round(sum(diag(threshold_0.7))/sum(threshold_0.7),2)
+sprintf('Accuracy is %s', accuracy_0.7)
+# Mis-classification error rate
+MC_0.7 <- 1-accuracy_0.7
+sprintf("Mis-classification error is %s",MC_0.7)
+```
+
+`r pagebreak()`
+
+#### *3.4 ROC curve*
+```{r}
+# Generate ROC Curves
+library(ROCR)
+ROCRpred = prediction(PredictTrain, train1$Outcome)
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+# Adding threshold labels
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at = seq(0,1,0.1), text.adj = c(-0.2, 1.7))
+abline(a=0, b=1)
+```
+
+`r pagebreak()`
+
+#### *3.5 Test set predictions*
+```{r}
+# Making predictions on test set
+PredictTest <- predict(AllVar1, type = "response", newdata = test1)
+# Convert probabilities to values using the below
+## Based on ROC curve above, selected a threshold of 0.5
+test_tab <- table(test1$Outcome, PredictTest > 0.5)
+test_tab
+accuracy_test <- round(sum(diag(test_tab))/sum(test_tab),2)
+sprintf("Accuracy on test set is %s", accuracy_test)
+```
+
+
+
+#### *3.6 AUC*
+```{r}
+# Compute test set AUC
+ROCRPredTest = prediction(PredictTest, test1$Outcome)
+auc = round(as.numeric(performance(ROCRPredTest, "auc")@y.values),2)
+auc
+```
+
+`r pagebreak()`
+
+### **PREDICTIONS**
+Using Logistic Regression with 0.5 Threshold for its better accuracy
+```{r}
+rm=glm(Outcome~.,data = diabetes1,family = "binomial")
+diabetes1$Probability<-round(fitted(rm),2)
+table(diabetes1$Outcome,fitted(rm)>0.5)
+```
+
+```{r}
+diabetes1$diabetes=round(diabetes1$Probability,0)
+knitr::kable(head(diabetes1,50),format = "markdown")
+```
+
+
+
+
+`r pagebreak()`
+
+### **FINAL DATA**
+
+Dimensions after removing misclassified data
+```{r}
+d1=subset(diabetes1,diabetes1$Outcome==diabetes1$diabetes)
+dim(d1)
+```
+```{r}
+diabetes1$diabetes <- as.factor(diabetes1$diabetes)
+levels(diabetes1$diabetes) <- c("No","Yes")
+```
+
+
+**First 50 values**
+```{r}
+knitr::kable(head(d1,50),format = "markdown")
+```
+
+`r pagebreak()`
+
+**Model with only predicted values(Displaying first 50 values)**
+```{r}
+d2=diabetes1[c(1:8,11)]
+knitr::kable(head(d2,50),format = "markdown")
+```
+
+`r pagebreak()`
+
+**Model with only those people who have diabetes(Displaying first 50 values)**
+```{r}
+d3=subset(diabetes1[c(1:8)],diabetes1$diabetes=="Yes")
+knitr::kable(head(d3,50),format = "markdown")
+```
+
+`r pagebreak()`
+
+**Model with those people who don't have diabetes(Displaying first 50 values)**
+```{r}
+d4=subset(diabetes1[c(1:8)],diabetes1$diabetes=="No")
+knitr::kable(head(d4,50),format = "markdown")
+```
+
+</br></br>
+
+### **CONCLUSION**
+We can predict the probability of patient having diabetes with 82% accuracy using logistic regression model.
